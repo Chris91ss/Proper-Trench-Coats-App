@@ -1,3 +1,5 @@
+---
+
 # Proper Trench Coats Application
 
 ## Overview
@@ -15,7 +17,7 @@ The application supports two modes of operation:
 - **Command-Line Interface (CLI)**: A text-based interface for basic operations.
 - **Qt-based GUI**: A graphical interface for both the administrator and user operations.
 - **Graphical Representation**: A pie chart that visually represents the number of coats priced below and above 200$.
-- **CSV/HTML Shopping Basket**: Users can save and view their shopping baskets in CSV or HTML formats, or export data to an external application.
+- **CSV/HTML/SQLite Shopping Basket**: Users can save and view their shopping baskets in CSV, HTML, or SQLite formats, or export data to an external application.
 
 ### Advanced Features:
 - **Database-Backed Repository**: Full support for storing data in an SQLite database, providing robust data persistence.
@@ -74,13 +76,47 @@ Upon launching, the application will prompt the user to choose between **Adminis
 - **Save** the basket in **CSV**, **HTML**, or **SQLite database** format.
 - **View** the basket total and contents in an external application.
 
+## Database-Backed Repository
+
+In addition to file-based storage (CSV/HTML), the application also supports data persistence through an **SQLite** database. The `DataBaseRepository` class handles the database operations, including adding, removing, and querying trench coats.
+
+The repository automatically creates the necessary table (`trenchcoats`) if it doesn't exist, and the data is stored in a structured manner for easy retrieval.
+
+### Example of Database Integration:
+
+```cpp
+// dataBaseRepository.cpp
+
+DataBaseRepository::DataBaseRepository(const string& fileName) : fileName(fileName), db(nullptr) {
+    int rc = sqlite3_open(fileName.c_str(), &db);
+    if (rc != SQLITE_OK) {
+        throw std::runtime_error("Error opening SQLite database");
+    }
+
+    const char* createTableSQL = "CREATE TABLE IF NOT EXISTS trenchcoats (id INTEGER PRIMARY KEY, size TEXT, color TEXT, price REAL, quantity INTEGER, photograph TEXT)";
+    char* errMsg;
+    rc = sqlite3_exec(db, createTableSQL, nullptr, nullptr, &errMsg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(errMsg);
+        sqlite3_close(db);
+        throw std::runtime_error("Error creating table");
+    }
+}
+```
+
+### Benefits of Database Persistence:
+- **Robust Data Storage**: SQLite ensures that trench coat data is stored reliably and can be retrieved efficiently, even after the application is closed.
+- **Search and Filter Capabilities**: The SQLite database allows efficient querying of large datasets, which improves the performance of operations like filtering coats by size or price.
+- **Scalability**: Database-backed storage is more scalable than file-based storage, making it ideal for applications that need to handle larger datasets.
+
 ## Project Structure
 
 ```plaintext
 ├── data                       # Stores data files like CSV, HTML, and SQLite databases
 │   ├── shoppingBasket.csv      # CSV file for storing basket data
 │   ├── shoppingBasket.html     # HTML file for basket viewing
-│   └── data.txt                # Text file containing initial trench coat data
+│   ├── data.txt                # Text file containing initial trench coat data
+│   ├── trenchCoats.db          # SQLite database file for trench coat inventory
 ├── headers                     # Header files
 │   ├── domain                  # Domain models (e.g., TrenchCoat)
 │   ├── repository              # Handles data storage/retrieval (CSV, HTML, SQLite)
@@ -109,9 +145,6 @@ This layer represents the core domain entity, `TrenchCoat`. It defines the attri
 ### 2. **Repository Layer (`repository/`)**:
 The repository layer provides persistence mechanisms for trench coats. The application offers multiple implementations for file-based (CSV/HTML) and database-backed (SQLite) storage.
 
-- **Text Repository**: Stores trench coat data in a text file.
-- **CSV/HTML Repository**: Saves shopping baskets in CSV or HTML formats.
-
 ### 3. **Service Layer (`service/`)**:
 This layer handles the business logic for managing trench coats and shopping baskets. It communicates between the repository and UI layers, ensuring that business rules are respected.
 
@@ -123,33 +156,6 @@ The Qt-based graphical user interface provides administrators and users with a G
 
 ### 6. **Graphical Representation: Pie Chart**
 A pie chart is rendered to show the number of trench coats priced below and above $200, providing a visual summary for users.
-
-```cpp
-// gui.cpp
-void GUI::paintEvent(QPaintEvent *event) {
-    QPainter painter(this);
-    int coatsUnder200 = 0;
-    int coatsOver200 = 0;
-
-    for (const auto &coat : service.getAllTrenchCoats()) {
-        if (coat.GetPrice() < 200) {
-            coatsUnder200++;
-        } else {
-            coatsOver200++;
-        }
-    }
-
-    int total = coatsUnder200 + coatsOver200;
-    int angleUnder200 = (coatsUnder200 * 360) / total;
-    int angleOver200 = 360 - angleUnder200;
-
-    painter.setBrush(Qt::green);
-    painter.drawPie(QRectF(10, 10, 200, 200), 0, angleUnder200 * 16);
-
-    painter.setBrush(Qt::red);
-    painter.drawPie(QRectF(10, 10, 200, 200), angleUnder200 * 16, angleOver200 * 16);
-}
-```
 
 ---
 
